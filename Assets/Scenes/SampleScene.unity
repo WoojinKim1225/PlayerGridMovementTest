@@ -266,8 +266,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   givenEffect: {fileID: 0}
   logs: 
-  logNumber: 0
-  logBigNumber: 0
+  logBitLocation: 0
+  logIndex: 0
   upProperty:
     m_UseReference: 0
     m_Action:
@@ -370,6 +370,7 @@ MonoBehaviour:
     m_Reference: {fileID: 0}
   lastMoveDirection: {x: 0, y: 0}
   startTimer: {x: 0.5, y: 0.2}
+  undoTimer: {x: 0.8, y: 0.05}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0

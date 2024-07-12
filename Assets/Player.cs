@@ -4,26 +4,30 @@ using UnityEngine.InputSystem;
 
 public class Player : Character
 {
-    public InputActionProperty upProperty, downProperty, leftProperty, rightProperty;
-    public InputActionProperty undoProperty;
+    public InputActionProperty upProperty, downProperty, leftProperty, rightProperty; // 방향 입력 액션
+    public InputActionProperty undoProperty; // 되돌리기 입력 액션
 
-    public Vector2 lastMoveDirection;
+    public Vector2 lastMoveDirection; // 마지막 이동 방향
 
-    public Vector2 startTimer;
-    private float timer;
+    public Vector2 startTimer; // 타이머 초기값, x: 초기값, y: 주기적 값
+    public Vector2 undoTimer; // 되돌리기 타이머 초기값, x: 초기값, y: 주기적 값
+    private float _time; // 현재 타이머 값
+    private float _undoTime; // 되돌리기 타이머 값
 
-    void Awake()
+    public override void Awake()
     {
+        // 입력 액션 활성화
         upProperty.action.Enable();
         downProperty.action.Enable();
         leftProperty.action.Enable();
         rightProperty.action.Enable();
         undoProperty.action.Enable();
-        logs.Add(0);
+        base.Awake();
     }
 
     void OnDestroy()
     {
+        // 입력 액션 비활성화
         upProperty.action.Disable();
         downProperty.action.Disable();
         leftProperty.action.Disable();
@@ -33,6 +37,7 @@ public class Player : Character
 
     void OnEnable()
     {
+        // 입력 액션 이벤트 연결
         upProperty.action.started += OnStartUp;
         downProperty.action.started += OnStartDown;
         leftProperty.action.started += OnStartLeft;
@@ -47,6 +52,7 @@ public class Player : Character
 
     void OnDisable()
     {
+        // 입력 액션 이벤트 해제
         upProperty.action.started -= OnStartUp;
         downProperty.action.started -= OnStartDown;
         leftProperty.action.started -= OnStartLeft;
@@ -59,91 +65,66 @@ public class Player : Character
         rightProperty.action.canceled -= ResetDirection;
     }
 
-    void OnStartUp(InputAction.CallbackContext context) => StartMovement(Vector2.up);
+    void OnStartUp(InputAction.CallbackContext context) => StartMovement(Vector2.up); // 위로 이동 시작
+    void OnStartDown(InputAction.CallbackContext context) => StartMovement(Vector2.down); // 아래로 이동 시작
+    void OnStartLeft(InputAction.CallbackContext context) => StartMovement(Vector2.left); // 왼쪽으로 이동 시작
+    void OnStartRight(InputAction.CallbackContext context) => StartMovement(Vector2.right); // 오른쪽으로 이동 시작
 
-    void OnStartDown(InputAction.CallbackContext context) => StartMovement(Vector2.down);
-
-    void OnStartLeft(InputAction.CallbackContext context) => StartMovement(Vector2.left);
-
-    void OnStartRight(InputAction.CallbackContext context) => StartMovement(Vector2.right);
-
-    void StartMovement(Vector2 direction){
-        timer = startTimer.x;
-        lastMoveDirection = direction;
-        MoveCharacter(lastMoveDirection);
+    void StartMovement(Vector2 direction)
+    {
+        _time = startTimer.x; // 타이머 초기화
+        lastMoveDirection = direction; // 이동 방향 설정
+        MoveCharacter(lastMoveDirection); // 캐릭터 이동
     }
 
-    void ResetDirection(InputAction.CallbackContext context){
-        lastMoveDirection = Vector2.zero;
+    void ResetDirection(InputAction.CallbackContext context)
+    {
+        lastMoveDirection = Vector2.zero; // 이동 방향 리셋
     }
 
-    void OnUndo(InputAction.CallbackContext context) {
-        UndoCharacter();
+    void OnUndo(InputAction.CallbackContext context)
+    {
+        _undoTime = undoTimer.x;
+        UndoCharacter(out uint lastMoveNumber); // 캐릭터 되돌리기
     }
 
-    void Update(){
-        if (lastMoveDirection != Vector2.zero){
-            timer -= Time.deltaTime;
-            if (timer <= 0){
-                timer = startTimer.y;
-                MoveCharacter(lastMoveDirection);
+    void Update()
+    {
+        if (lastMoveDirection != Vector2.zero)
+        {
+            _time -= Time.deltaTime; // 타이머 감소
+            if (_time <= 0)
+            {
+                _time = startTimer.y; // 주기적 타이머 재설정
+                MoveCharacter(lastMoveDirection); // 캐릭터 이동
+            }
+        }
+
+        if (undoProperty.action.ReadValue<float>() > 0.5f)
+        {
+            _undoTime -= Time.deltaTime; // 타이머 감소
+            if (_undoTime <= 0)
+            {
+                _undoTime = undoTimer.y; // 주기적 타이머 재설정
+                UndoCharacter(out uint lastMoveNumber); // 캐릭터 이동
             }
         }
     }
 
-    public override void MoveCharacter(Vector2 dir){
+    public override void MoveCharacter(Vector2 dir)
+    {
+        // 캐릭터 위치 업데이트
         transform.position += new Vector3(lastMoveDirection.x, lastMoveDirection.y, 0);
 
-        long i;
-        if (dir == Vector2.up) {
-            i = 0;
-        } else if (dir == Vector2.down) {
-            i = 1;
-        } else if (dir == Vector2.left) {
-            i = 2;
-        } else {
-            i = 3;
-        }
-        Debug.Log(i);
-
-        logs[logBigNumber] |= (uint)(i << logNumber);
-        logNumber += 2;
-        if (logNumber == 32) {
-            logNumber = 0;
-            logBigNumber++;
-            logs.Add(0);
-        }
+        base.MoveCharacter(dir);
     }
 
-    public override void UndoCharacter() {
-        if (logNumber == 0 && logBigNumber == 0) return;
-        uint i;
-        if (logNumber == 0) {
-            logBigNumber -= 1;
-            logNumber = 30;
-            i = (logs[logBigNumber] >> logNumber) & 3;
-            logs[logBigNumber] &= ~(uint)(3 << logNumber);
-            logs.RemoveAt(logs.Count - 1);
-        } else {
-            logNumber -= 2;
-            i = (logs[logBigNumber] >> logNumber) & 3;
-            logs[logBigNumber] &= ~(uint)(3 << logNumber);
-        }
-
-        switch (i) {
-            case 0:
-                transform.position -= new Vector3(0,1,0);
-                break;
-            case 1:
-                transform.position -= new Vector3(0,-1,0);
-                break;
-            case 2:
-                transform.position -= new Vector3(-1,0,0);
-                break;
-            case 3:
-                transform.position -= new Vector3(1,0,0);
-                break;
-        }
-        Debug.Log(i);
+    public override void UndoCharacter(out uint i)
+    {
+        base.UndoCharacter(out uint num);
+        // 캐릭터 위치 되돌리기
+        if (num < 4)
+            transform.position -= Num2Direction(num);
+        i = num;
     }
 }
